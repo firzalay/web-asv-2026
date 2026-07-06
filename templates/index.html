@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixhawk Monitor - Autonomous Boat</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="brand">
+        <span class="brand-icon">⚓</span>
+        <div>
+            <h1>Pixhawk Monitor</h1>
+            <p>Autonomous Boat Telemetry Dashboard</p>
+        </div>
+    </div>
+    <div id="connStatus" class="conn-status offline">
+        <span class="dot"></span>
+        <span id="connText">Menghubungkan...</span>
+    </div>
+</header>
+
+<main class="grid">
+
+    <!-- MAP -->
+    <section class="card map-card">
+        <h2>Posisi Kapal</h2>
+        <div id="map"></div>
+        <div class="coords">
+            <div>
+                <span class="label">Latitude</span>
+                <span class="value" id="latVal">--</span>
+            </div>
+            <div>
+                <span class="label">Longitude</span>
+                <span class="value" id="lonVal">--</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- COMPASS / COG -->
+    <section class="card compass-card">
+        <h2>Course Over Ground (COG)</h2>
+        <div class="compass-wrap">
+            <svg viewBox="0 0 200 200" class="compass">
+                <circle cx="100" cy="100" r="95" class="compass-ring"/>
+                <text x="100" y="20" class="compass-label">N</text>
+                <text x="180" y="105" class="compass-label">E</text>
+                <text x="100" y="190" class="compass-label">S</text>
+                <text x="20" y="105" class="compass-label">W</text>
+                <g id="needle" transform="rotate(0 100 100)">
+                    <polygon points="100,25 90,110 100,95 110,110" class="needle-shape"/>
+                </g>
+                <circle cx="100" cy="100" r="6" class="compass-center"/>
+            </svg>
+        </div>
+        <div class="big-value"><span id="cogVal">0.0</span>°</div>
+    </section>
+
+    <!-- SOG -->
+    <section class="card gauge-card">
+        <h2>Speed Over Ground (SOG)</h2>
+        <div class="big-value huge"><span id="sogVal">0.0</span><small> knots</small></div>
+        <div class="sub-value" id="sogMs">0.0 m/s</div>
+    </section>
+
+    <!-- GROUNDSPEED -->
+    <section class="card gauge-card">
+        <h2>Kecepatan (Groundspeed)</h2>
+        <div class="big-value huge"><span id="speedVal">0.0</span><small> km/h</small></div>
+        <div class="sub-value" id="speedMs">0.0 m/s</div>
+    </section>
+
+    <!-- FLIGHT MODE & ARMED STATUS -->
+    <section class="card flightmode-card">
+        <h2>Mode &amp; Status Arming</h2>
+        <div class="flightmode-wrap">
+            <div class="mode-badge" id="modeBadge">
+                <span class="mode-label">MODE</span>
+                <span class="mode-value" id="modeVal">--</span>
+            </div>
+            <div class="armed-badge disarmed" id="armedBadge">
+                <span class="armed-dot"></span>
+                <span id="armedVal">DISARMED</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- STATUS -->
+    <section class="card status-card">
+        <h2>Status GPS &amp; Sistem</h2>
+        <ul class="status-list">
+            <li><span>Fix Type</span><strong id="fixVal">--</strong></li>
+            <li><span>Satelit</span><strong id="satVal">--</strong></li>
+            <li><span>Heading</span><strong id="hdgVal">--°</strong></li>
+            <li><span>Tegangan Baterai</span><strong id="battVal">--</strong></li>
+            <li><span>Update Terakhir</span><strong id="tsVal">--</strong></li>
+        </ul>
+    </section>
+
+    <!-- MISSION / WAYPOINT -->
+    <section class="card mission-card">
+        <div class="mission-header">
+            <h2>Mission / Waypoint</h2>
+            <button id="btnFetchMission" class="btn-primary">⬇ Ambil Waypoint dari FC</button>
+        </div>
+        <p id="missionStatus" class="mission-status">Belum ada data mission.</p>
+        <div class="mission-table-wrap">
+            <table class="mission-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Command</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>Alt (m)</th>
+                    </tr>
+                </thead>
+                <tbody id="missionTableBody">
+                    <tr><td colspan="5" class="mission-empty">Belum ada waypoint dimuat</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- FLOATING BALL COUNTER -->
+    <section class="card ball-card">
+        <div class="mission-header">
+            <h2>🎯 Floating Ball Counter (Otomatis)</h2>
+            <span id="camStatus" class="cam-status offline">Kamera Terputus</span>
+        </div>
+
+        <div class="ball-layout">
+            <div class="ball-feed-wrap">
+                <img id="cameraFeed" class="ball-feed" alt="Live camera feed" />
+                <div id="cameraPlaceholder" class="feed-placeholder">
+                    <span>📷</span>
+                    <p>Menunggu feed kamera...</p>
+                </div>
+            </div>
+
+            <div class="ball-side">
+                <div class="ball-tally">
+                    <span id="ballCount">0</span><span class="ball-tally-sep">/</span><span id="ballTotal">10</span>
+                </div>
+                <p class="ball-tally-label">Bola Terhitung</p>
+
+                <div class="ball-manual-controls">
+                    <button id="btnBallMinus" class="btn-secondary">−</button>
+                    <button id="btnBallPlus" class="btn-secondary">+</button>
+                    <button id="btnBallReset" class="btn-danger">Reset</button>
+                </div>
+
+                <details class="hsv-tuner">
+                    <summary>⚙ Kalibrasi Warna Bola (HSV)</summary>
+                    <div class="hsv-controls">
+                        <label>H Min <input type="range" id="hMin" min="0" max="179" value="5"><span id="hMinVal">5</span></label>
+                        <label>H Max <input type="range" id="hMax" min="0" max="179" value="25"><span id="hMaxVal">25</span></label>
+                        <label>S Min <input type="range" id="sMin" min="0" max="255" value="120"><span id="sMinVal">120</span></label>
+                        <label>S Max <input type="range" id="sMax" min="0" max="255" value="255"><span id="sMaxVal">255</span></label>
+                        <label>V Min <input type="range" id="vMin" min="0" max="255" value="120"><span id="vMinVal">120</span></label>
+                        <label>V Max <input type="range" id="vMax" min="0" max="255" value="255"><span id="vMaxVal">255</span></label>
+                        <button id="btnApplyHsv" class="btn-primary small">Terapkan</button>
+                        <p class="hsv-note">Default disetel untuk bola oranye terang. Sesuaikan slider sampai kotak hijau muncul stabil di bola pada live feed.</p>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <div class="ball-log-wrap">
+            <p class="ball-log-title">Log Waktu &amp; Posisi Tiap Bola</p>
+            <ul id="ballLog" class="ball-log">
+                <li class="mission-empty">Belum ada bola terhitung</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- MISSION SURFACE IMAGING (PLACEHOLDER) -->
+    <section class="card imaging-card">
+        <h2>🖼 Mission Surface Imaging</h2>
+        <div class="feed-placeholder static-placeholder">
+            <span>🌊</span>
+            <p>Fitur belum tersedia</p>
+            <small>Akan menampilkan gambar hasil capture permukaan saat misi berjalan</small>
+        </div>
+        <button class="btn-primary" disabled>📸 Capture Image</button>
+    </section>
+
+    <!-- MISSION UNDERWATER IMAGING (PLACEHOLDER) -->
+    <section class="card imaging-card">
+        <h2>🖼 Mission Underwater Imaging</h2>
+        <div class="feed-placeholder static-placeholder">
+            <span>🐟</span>
+            <p>Fitur belum tersedia</p>
+            <small>Akan menampilkan gambar hasil capture underwater saat misi berjalan</small>
+        </div>
+        <button class="btn-primary" disabled>📸 Capture Image</button>
+    </section>
+
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
