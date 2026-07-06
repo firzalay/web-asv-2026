@@ -187,6 +187,29 @@ body {
     margin-bottom: 4px;
 }
 
+.mission-header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-secondary.small {
+    flex: none;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.auto-engaged-banner {
+    background: #1a2410;
+    border: 1px solid var(--amber);
+    color: var(--amber);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
 .btn-primary {
     background: var(--accent);
     color: #05171c;
@@ -430,6 +453,43 @@ body {
     margin-bottom: 12px;
 }
 .imaging-card .btn-primary { width: 100%; }
+
+/* ===================== SYSTEM LOG ===================== */
+
+.syslog-card { grid-column: span 4; }
+.syslog-hint { font-size: 11px; color: var(--text-dim); }
+
+.system-log {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    font-size: 13px;
+}
+.system-log li {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    background: #0c1826;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border-left: 3px solid var(--panel-border);
+}
+.system-log li.wp-event {
+    border-left-color: var(--accent);
+    background: #0c1f26;
+}
+.system-log li.sev-error, .system-log li.sev-critical, .system-log li.sev-emergency, .system-log li.sev-alert {
+    border-left-color: var(--red);
+}
+.system-log li.sev-warning { border-left-color: var(--amber); }
+
+.log-time { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+.log-sev { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #142235; color: var(--text-dim); white-space: nowrap; }
+.log-text { flex: 1; }
+.log-pos { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
 
 @media (max-width: 1000px) {
     .ball-card, .imaging-card { grid-column: span 2; }

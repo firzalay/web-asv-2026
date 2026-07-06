@@ -104,6 +104,10 @@ const el = {
     btnFetchMission: document.getElementById('btnFetchMission'),
     missionStatus: document.getElementById('missionStatus'),
     missionTableBody: document.getElementById('missionTableBody'),
+    btnSetupRc10: document.getElementById('btnSetupRc10'),
+    rcSetupStatus: document.getElementById('rcSetupStatus'),
+    autoEngagedBanner: document.getElementById('autoEngagedBanner'),
+    systemLog: document.getElementById('systemLog'),
     cameraFeed: document.getElementById('cameraFeed'),
     cameraPlaceholder: document.getElementById('cameraPlaceholder'),
     camStatus: document.getElementById('camStatus'),
@@ -247,6 +251,78 @@ socket.on('mission_data', (data) => {
     const timeStr = data.last_updated ? new Date(data.last_updated * 1000).toLocaleTimeString('id-ID') : '';
     el.missionStatus.textContent = `Berhasil ambil ${items.length} waypoint dari FC (${timeStr})`;
     el.missionStatus.className = 'mission-status success';
+});
+
+// ---- Setup RC Channel 10 = Save Waypoint ----
+
+el.btnSetupRc10.addEventListener('click', () => {
+    if (!confirm('Set channel 10 sebagai "Save Waypoint" di FC? Ini akan menimpa fungsi channel 10 yang mungkin sudah ada sebelumnya.')) {
+        return;
+    }
+    el.btnSetupRc10.disabled = true;
+    el.rcSetupStatus.textContent = 'Mengirim perintah setup ke FC...';
+    el.rcSetupStatus.className = 'mission-status loading';
+    socket.emit('setup_rc_save_wp', { channel: 10 });
+
+    setTimeout(() => {
+        if (el.btnSetupRc10.disabled) {
+            el.rcSetupStatus.textContent = 'Timeout: FC tidak merespons. Pastikan Pixhawk terhubung.';
+            el.rcSetupStatus.className = 'mission-status error';
+            el.btnSetupRc10.disabled = false;
+        }
+    }, 8000);
+});
+
+socket.on('rc_setup_result', (data) => {
+    el.btnSetupRc10.disabled = false;
+    if (data.success) {
+        el.rcSetupStatus.textContent = `✅ Berhasil! ${data.param} = ${data.value} (Save Waypoint). Setting ini permanen tersimpan di FC.`;
+        el.rcSetupStatus.className = 'mission-status success';
+    } else {
+        el.rcSetupStatus.textContent = data.message || `⚠️ Gagal set ${data.param}, dapat nilai ${data.value}`;
+        el.rcSetupStatus.className = 'mission-status error';
+    }
+});
+
+// ---- Notifikasi AUTO engaged (mode baru saja berubah ke AUTO) ----
+
+socket.on('auto_engaged', () => {
+    el.autoEngagedBanner.style.display = 'block';
+    setTimeout(() => {
+        el.autoEngagedBanner.style.display = 'none';
+    }, 10000);
+});
+
+// ---- System Log (STATUSTEXT dari FC, termasuk "Saved waypoint") ----
+
+function renderLogEntry(entry) {
+    const timeStr = new Date(entry.timestamp * 1000).toLocaleTimeString('id-ID');
+    const posStr = (entry.lat && entry.lon) ? `${entry.lat.toFixed(5)}, ${entry.lon.toFixed(5)}` : '';
+    const classes = ['sev-' + entry.severity.toLowerCase()];
+    if (entry.is_waypoint_event) classes.push('wp-event');
+
+    return `<li class="${classes.join(' ')}">
+        <span class="log-time">${timeStr}</span>
+        <span class="log-sev">${entry.severity}</span>
+        <span class="log-text">${entry.is_waypoint_event ? '📍 ' : ''}${entry.text}</span>
+        <span class="log-pos">${posStr}</span>
+    </li>`;
+}
+
+socket.on('system_log_history', (entries) => {
+    if (!entries || entries.length === 0) return;
+    el.systemLog.innerHTML = entries.slice().reverse().map(renderLogEntry).join('');
+});
+
+socket.on('system_log_entry', (entry) => {
+    const emptyMsg = el.systemLog.querySelector('.mission-empty');
+    if (emptyMsg) el.systemLog.innerHTML = '';
+    el.systemLog.insertAdjacentHTML('afterbegin', renderLogEntry(entry));
+
+    // Batasi jumlah baris yang ditampilkan biar gak terlalu panjang
+    while (el.systemLog.children.length > 50) {
+        el.systemLog.removeChild(el.systemLog.lastChild);
+    }
 });
 
 // ---- Floating Ball Counter (Computer Vision) ----
