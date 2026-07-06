@@ -1,0 +1,6 @@
+flask
+flask-socketio
+pymavlink
+python-socketio
+opencv-python
+numpy
