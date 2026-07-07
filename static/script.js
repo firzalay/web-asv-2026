@@ -29,6 +29,37 @@ let firstFix = true;
 // Layer group khusus untuk waypoint mission (dipisah dari jejak kapal)
 const missionLayer = L.layerGroup().addTo(map);
 
+// Layer group khusus untuk titik hasil recording (opsi 2, sebelum diupload)
+const recordingLayer = L.layerGroup().addTo(map);
+let recordingLatLngs = [];
+
+function addRecordingPointToMap(point) {
+    const latlng = [point.lat, point.lon];
+    recordingLatLngs.push(latlng);
+
+    L.circleMarker(latlng, {
+        radius: 6,
+        color: '#b98bff',
+        fillColor: '#b98bff',
+        fillOpacity: 0.9,
+        weight: 2,
+    }).bindPopup(`<b>Rec #${point.seq}</b><br>${point.lat.toFixed(6)}, ${point.lon.toFixed(6)}`)
+      .addTo(recordingLayer);
+
+    // Gambar ulang garis penghubung
+    recordingLayer.eachLayer((layer) => {
+        if (layer instanceof L.Polyline) recordingLayer.removeLayer(layer);
+    });
+    if (recordingLatLngs.length > 1) {
+        L.polyline(recordingLatLngs, { color: '#b98bff', weight: 3, opacity: 0.8 }).addTo(recordingLayer);
+    }
+}
+
+function clearRecordingMap() {
+    recordingLayer.clearLayers();
+    recordingLatLngs = [];
+}
+
 function renderMissionOnMap(items) {
     missionLayer.clearLayers();
     if (!items || items.length === 0) return;
@@ -108,6 +139,14 @@ const el = {
     rcSetupStatus: document.getElementById('rcSetupStatus'),
     autoEngagedBanner: document.getElementById('autoEngagedBanner'),
     systemLog: document.getElementById('systemLog'),
+    btnClearMission: document.getElementById('btnClearMission'),
+    btnRecordStart: document.getElementById('btnRecordStart'),
+    btnRecordStop: document.getElementById('btnRecordStop'),
+    btnClearRecording: document.getElementById('btnClearRecording'),
+    btnUploadMission: document.getElementById('btnUploadMission'),
+    recordCount: document.getElementById('recordCount'),
+    recordIndicator: document.getElementById('recordIndicator'),
+    uploadStatus: document.getElementById('uploadStatus'),
     cameraFeed: document.getElementById('cameraFeed'),
     cameraPlaceholder: document.getElementById('cameraPlaceholder'),
     camStatus: document.getElementById('camStatus'),
@@ -284,6 +323,39 @@ socket.on('rc_setup_result', (data) => {
     }
 });
 
+// ---- Clear Mission (hapus semua waypoint di FC) ----
+
+el.btnClearMission.addEventListener('click', () => {
+    if (!confirm('Yakin mau HAPUS SEMUA waypoint yang tersimpan di FC? Aksi ini tidak bisa dibatalkan.')) {
+        return;
+    }
+    el.btnClearMission.disabled = true;
+    el.missionStatus.textContent = 'Menghapus mission di FC...';
+    el.missionStatus.className = 'mission-status loading';
+    socket.emit('clear_mission');
+
+    setTimeout(() => {
+        if (el.btnClearMission.disabled) {
+            el.missionStatus.textContent = 'Timeout: FC tidak merespons perintah clear.';
+            el.missionStatus.className = 'mission-status error';
+            el.btnClearMission.disabled = false;
+        }
+    }, 8000);
+});
+
+socket.on('mission_clear_result', (data) => {
+    el.btnClearMission.disabled = false;
+    if (data.success) {
+        el.missionStatus.textContent = '✅ Mission berhasil dihapus. FC sekarang kosong (0 waypoint).';
+        el.missionStatus.className = 'mission-status success';
+        renderMissionTable([]);
+        renderMissionOnMap([]);
+    } else {
+        el.missionStatus.textContent = data.message || '⚠️ Gagal menghapus mission di FC.';
+        el.missionStatus.className = 'mission-status error';
+    }
+});
+
 // ---- Notifikasi AUTO engaged (mode baru saja berubah ke AUTO) ----
 
 socket.on('auto_engaged', () => {
@@ -322,6 +394,89 @@ socket.on('system_log_entry', (entry) => {
     // Batasi jumlah baris yang ditampilkan biar gak terlalu panjang
     while (el.systemLog.children.length > 50) {
         el.systemLog.removeChild(el.systemLog.lastChild);
+    }
+});
+
+// ---- Record Waypoint (Opsi 2) ----
+
+el.btnRecordStart.addEventListener('click', () => {
+    clearRecordingMap();
+    socket.emit('start_recording');
+});
+
+el.btnRecordStop.addEventListener('click', () => {
+    socket.emit('stop_recording');
+});
+
+el.btnClearRecording.addEventListener('click', () => {
+    if (confirm('Hapus semua titik hasil rekaman? (Belum diupload, jadi aman dihapus)')) {
+        socket.emit('clear_recorded_points');
+    }
+});
+
+socket.on('recording_status', (data) => {
+    el.recordCount.textContent = data.count;
+    el.btnRecordStart.disabled = data.active;
+    el.btnRecordStop.disabled = !data.active;
+    el.btnClearRecording.disabled = data.active || data.count === 0;
+    el.btnUploadMission.disabled = data.active || data.count === 0;
+    el.recordIndicator.style.display = data.active ? 'inline' : 'none';
+});
+
+socket.on('recording_point_added', (point) => {
+    el.recordCount.textContent = point.seq + 1;
+    addRecordingPointToMap(point);
+});
+
+socket.on('recording_cleared', () => {
+    clearRecordingMap();
+});
+
+// ---- Upload Mission ke FC ----
+
+let uploadTimeout = null;
+
+el.btnUploadMission.addEventListener('click', () => {
+    const count = parseInt(el.recordCount.textContent, 10) || 0;
+    if (!confirm(`Upload ${count} waypoint hasil rekaman ke FC sebagai mission baru? (Mission lama di FC akan tertimpa)`)) {
+        return;
+    }
+    el.btnUploadMission.disabled = true;
+    el.uploadStatus.textContent = 'Mengirim mission ke FC...';
+    el.uploadStatus.className = 'mission-status loading';
+    socket.emit('upload_recorded_mission');
+
+    clearTimeout(uploadTimeout);
+    uploadTimeout = setTimeout(() => {
+        if (el.btnUploadMission.disabled) {
+            el.uploadStatus.textContent = 'Timeout: FC tidak merespons upload.';
+            el.uploadStatus.className = 'mission-status error';
+            el.btnUploadMission.disabled = false;
+        }
+    }, 15000);
+});
+
+socket.on('mission_upload_status', (data) => {
+    el.uploadStatus.textContent = `Mengirim ${data.total} waypoint ke FC...`;
+    el.uploadStatus.className = 'mission-status loading';
+});
+
+socket.on('mission_upload_progress', (data) => {
+    el.uploadStatus.textContent = `Mengirim waypoint ${data.sent} / ${data.total}...`;
+    el.uploadStatus.className = 'mission-status loading';
+});
+
+socket.on('mission_upload_result', (data) => {
+    clearTimeout(uploadTimeout);
+    el.btnUploadMission.disabled = false;
+
+    if (data.success) {
+        el.uploadStatus.textContent = '✅ Mission berhasil di-upload ke FC! Cek tabel Mission di atas untuk verifikasi.';
+        el.uploadStatus.className = 'mission-status success';
+        clearRecordingMap();
+    } else {
+        el.uploadStatus.textContent = data.message || '⚠️ Upload gagal, FC menolak mission.';
+        el.uploadStatus.className = 'mission-status error';
     }
 });
 

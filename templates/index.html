@@ -106,8 +106,16 @@
     <section class="card mission-card">
         <div class="mission-header">
             <h2>Mission / Waypoint</h2>
-            <button id="btnFetchMission" class="btn-primary">⬇ Ambil Waypoint dari FC</button>
+            <div class="mission-header-actions">
+                <button id="btnSetupRc10" class="btn-secondary small">🔧 Setup CH10 = Save WP</button>
+                <button id="btnClearMission" class="btn-danger-outline">🗑 Clear Mission</button>
+                <button id="btnFetchMission" class="btn-primary">⬇ Ambil Waypoint dari FC</button>
+            </div>
         </div>
+        <p id="rcSetupStatus" class="mission-status"></p>
+        <p id="autoEngagedBanner" class="auto-engaged-banner" style="display:none;">
+            ⚡ Mode AUTO aktif — mission di bawah otomatis di-refresh untuk verifikasi
+        </p>
         <p id="missionStatus" class="mission-status">Belum ada data mission.</p>
         <div class="mission-table-wrap">
             <table class="mission-table">
@@ -199,6 +207,36 @@
             <small>Akan menampilkan gambar hasil capture underwater saat misi berjalan</small>
         </div>
         <button class="btn-primary" disabled>📸 Capture Image</button>
+    </section>
+    <!-- SYSTEM LOG -->
+    <section class="card syslog-card">
+        <div class="mission-header">
+            <h2>📋 System Log (FC Messages)</h2>
+            <span class="syslog-hint">Termasuk notifikasi "Saved waypoint" dari channel 10</span>
+        </div>
+        <ul id="systemLog" class="system-log">
+            <li class="mission-empty">Belum ada pesan dari FC</li>
+        </ul>
+    </section>
+    <!-- RECORD WAYPOINT (OPSI 2) -->
+    <section class="card record-card">
+        <div class="mission-header">
+            <h2>📍 Record Waypoint (Opsi 2 - via Dashboard)</h2>
+            <span class="record-hint">Alternatif selain channel 10, rekam rute langsung dari sini</span>
+        </div>
+
+        <div class="record-controls">
+            <button id="btnRecordStart" class="btn-record start">⏺ Record</button>
+            <button id="btnRecordStop" class="btn-record stop" disabled>⏹ Stop</button>
+            <div class="record-counter">
+                <span id="recordCount">0</span> titik terekam
+                <span id="recordIndicator" class="record-indicator" style="display:none;">● REC</span>
+            </div>
+            <button id="btnClearRecording" class="btn-secondary small" disabled>🗑 Hapus Rekaman</button>
+            <button id="btnUploadMission" class="btn-primary" disabled>⬆ Upload Mission ke FC</button>
+        </div>
+
+        <p id="uploadStatus" class="mission-status"></p>
     </section>
 
 </main>

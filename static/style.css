@@ -199,6 +199,19 @@ body {
     font-weight: 600;
 }
 
+.btn-danger-outline {
+    flex: none;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--red);
+    background: transparent;
+    color: var(--red);
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+}
+.btn-danger-outline:hover { background: #2a1015; }
+
 .auto-engaged-banner {
     background: #1a2410;
     border: 1px solid var(--amber);
@@ -490,6 +503,53 @@ body {
 .log-sev { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #142235; color: var(--text-dim); white-space: nowrap; }
 .log-text { flex: 1; }
 .log-pos { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+
+/* ===================== RECORD WAYPOINT (OPSI 2) ===================== */
+
+.record-card { grid-column: span 4; }
+.record-hint { font-size: 11px; color: var(--text-dim); }
+
+.record-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.btn-record {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+}
+.btn-record.start { background: var(--green); color: #05171c; }
+.btn-record.stop { background: var(--red); color: #1a0508; }
+.btn-record:hover:not(:disabled) { filter: brightness(1.1); }
+.btn-record:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.record-counter {
+    font-size: 14px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.record-counter span#recordCount { color: var(--accent); font-weight: 700; font-size: 18px; }
+
+.record-indicator {
+    color: var(--red);
+    font-weight: 700;
+    font-size: 12px;
+    animation: rec-blink 1s ease-in-out infinite;
+}
+@keyframes rec-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
 
 @media (max-width: 1000px) {
     .ball-card, .imaging-card { grid-column: span 2; }
